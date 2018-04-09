@@ -405,6 +405,7 @@ impl ZkIo {
             self.state = ZkState::NotConnected;
             self.notify_state(old_state, self.state);
 
+            info!("Reconnect due to HUP");
             self.reconnect();
         }
 
@@ -473,6 +474,7 @@ impl ZkIo {
         } else {
             // A timeout firing when there's inflight requests indicates a
             // potential disconnect.
+            warn!("timeout triggered with an inflight request");
             self.reconnect();
         }
     }
