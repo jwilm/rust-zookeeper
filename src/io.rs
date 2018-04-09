@@ -349,6 +349,8 @@ impl ZkIo {
     }
 
     fn ready_zk(&mut self, ready: Ready) {
+        self.clear_ping_timeout();
+
         if ready.is_writable() {
             while let Some(mut request) = self.buffer.pop_front() {
                 match self.sock.try_write_buf(&mut request.data) {
@@ -360,9 +362,6 @@ impl ZkIo {
                             break;
                         } else {
                             self.inflight.push_back(request);
-
-                            // Sent a full message, clear the ping timeout
-                            self.clear_ping_timeout();
                         }
                     }
                     Ok(None) => trace!("Spurious write"),
@@ -372,8 +371,6 @@ impl ZkIo {
                     }
                 }
             }
-
-            self.start_ping_timeout();
         }
 
         if ready.is_readable() {
@@ -389,6 +386,7 @@ impl ZkIo {
                     self.reconnect();
                 }
             }
+
         }
 
         if (ready.is_hup()) && (self.state != ZkState::Closed) {
@@ -409,6 +407,10 @@ impl ZkIo {
             self.reconnect();
         }
 
+        if self.is_idle() {
+            self.start_ping_timeout();
+        }
+
         // Not sure that we need to write, but we always need to read, because of watches
         // If the output buffer has no content, we don't need to write again
         let mut interest = Ready::all();
@@ -418,6 +420,10 @@ impl ZkIo {
 
         // This tick is done, subscribe to a forthcoming one
         self.reregister(interest);
+    }
+
+    fn is_idle(&self) -> bool {
+        self.inflight.is_empty() && self.buffer.is_empty()
     }
 
     fn ready_channel(&mut self, _: Ready) {
