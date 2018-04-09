@@ -459,7 +459,7 @@ impl ZkIo {
     }
 
     fn ready_timer(&mut self, _: Ready) {
-        trace!("ready_timer");
+        trace!("ready_timer; thread={:?}", ::std::thread::current().id());
 
         // Need to call timer.poll() until it returns None
         while let Some(()) = self.timer.poll() {
