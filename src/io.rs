@@ -461,11 +461,6 @@ impl ZkIo {
     fn ready_timer(&mut self, _: Ready) {
         trace!("ready_timer; thread={:?}", ::std::thread::current().id());
 
-        // Check for spurious wakeup
-        if self.timer.poll().is_none() {
-            return;
-        }
-
         // Need to call timer.poll() until it returns None
         while let Some(()) = self.timer.poll() {
             ()
