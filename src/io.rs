@@ -477,11 +477,6 @@ impl ZkIo {
                 watch: None,
             }).unwrap();
             self.ping_sent = Instant::now();
-        } else {
-            // A timeout firing when there's inflight requests indicates a
-            // potential disconnect.
-            warn!("timeout triggered with an inflight request");
-            self.reconnect();
         }
     }
 
