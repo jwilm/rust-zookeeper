@@ -460,7 +460,7 @@ impl ZkIo {
             ()
         }
 
-        self.timeout = None;
+        self.clear_ping_timeout();
         if self.inflight.is_empty() {
             // No inflight request indicates an idle connection. Send a ping.
             trace!("Pinging {:?}", self.sock.peer_addr().unwrap());
