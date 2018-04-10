@@ -271,7 +271,7 @@ impl ZkIo {
         self.timeout = Some(self.timer.set_timeout(duration, ()));
 
         self.poll.reregister(&self.timer, TIMER, Ready::readable(), pollopt())
-            .expect("Reregister CHANNEL");
+            .expect("Reregister TIMER");
     }
 
     fn reconnect(&mut self) {
@@ -461,22 +461,32 @@ impl ZkIo {
     fn ready_timer(&mut self, _: Ready) {
         trace!("ready_timer; thread={:?}", ::std::thread::current().id());
 
-        // Need to call timer.poll() until it returns None
-        while let Some(()) = self.timer.poll() {
-            ()
-        }
+        loop {
+            match self.timer.poll() {
+                Some(_) => {
+                    self.clear_ping_timeout();
+                    if self.inflight.is_empty() {
+                        // No inflight request indicates an idle connection. Send a ping.
+                        trace!("Pinging {:?}", self.sock.peer_addr().unwrap());
+                        self.tx.send(RawRequest {
+                            opcode: OpCode::Ping,
+                            data: PING.clone(),
+                            listener: None,
+                            watch: None,
+                        }).unwrap();
+                        self.ping_sent = Instant::now();
+                    }
+                },
+                None => {
+                    if self.timeout.is_some() {
+                        // Reregister on a spurious wakeup
+                        self.poll.reregister(&self.timer, TIMER, Ready::readable(), pollopt())
+                            .expect("Reregister TIMER");
+                    }
 
-        self.clear_ping_timeout();
-        if self.inflight.is_empty() {
-            // No inflight request indicates an idle connection. Send a ping.
-            trace!("Pinging {:?}", self.sock.peer_addr().unwrap());
-            self.tx.send(RawRequest {
-                opcode: OpCode::Ping,
-                data: PING.clone(),
-                listener: None,
-                watch: None,
-            }).unwrap();
-            self.ping_sent = Instant::now();
+                    break;
+                }
+            }
         }
     }
 
